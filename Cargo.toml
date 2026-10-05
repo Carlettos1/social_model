@@ -1,0 +1,14 @@
+[package]
+name = "modelo_social"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+file_log = "=0.1"
+csta = { git = "https://github.com/Carlettos1/csta2", features = ["serde"] }
+rand = "*"
+serde = "*"
+serde_derive = "*"
+serde_json = "*"
+itertools = "0.15"
+bincode = "=1.3"

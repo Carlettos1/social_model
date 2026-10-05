@@ -1,0 +1,20 @@
+# rust
+/target
+
+# python
+/pvenv
+/venv
+
+# file_log
+b0*.log
+b1*.log
+log*.log
+system*.log
+*.log
+
+# perf
+perf.data
+
+# datas
+leftraru/
+*.tar.gz
