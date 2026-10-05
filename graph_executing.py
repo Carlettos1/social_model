@@ -6,6 +6,7 @@ import re
 import os
 import matplotlib
 import subprocess as sub
+
 matplotlib.use("TkAgg")
 
 # File paths
@@ -26,12 +27,13 @@ AX_E = axs["E"]
 # Initialize plots
 scatter_trust = AX_A.scatter([], [], c=[], marker=".")
 scatter_liar = AX_A.scatter([], [], c=[], marker="x")
-energy_line, = AX_E.plot([], [], color="black")
+(energy_line,) = AX_E.plot([], [], color="black")
 AX_E.set_ylim(-8000, -4000)
 AX_A.set_xlim(0, 1)
 AX_A.set_ylim(0, 1)
 
 energy_data = []
+
 
 def get_last_line(path):
     with open(path, "rb") as f:
@@ -39,6 +41,7 @@ def get_last_line(path):
         while f.read(1) != b"\n":
             f.seek(-2, os.SEEK_CUR)
         return f.readline().decode()
+
 
 def update(frame):
     # Clear izones
@@ -105,6 +108,7 @@ def update(frame):
     sub.run(["wc", "-l", f"log/log_{ID}.log"])
 
     return scatter_trust, scatter_liar, energy_line
+
 
 ani = animation.FuncAnimation(fig, update, interval=100, blit=False)
 plt.tight_layout()

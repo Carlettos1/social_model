@@ -24,13 +24,14 @@ fn n_sim() {
 }
 
 fn get_prepared_system(config: &Config) -> System {
-    for mut sys in MonteCarlo::<System, _>::default() {
+    let mut rng = rand::rng();
+    loop {
+        let mut sys = System::sample_with_config(&mut rng, config);
         sys.izones = vec![full_config(1)];
         if sys.try_prepare_system(config) {
             return sys;
         }
     }
-    unreachable!("MonteCarlo Iterator has ended (not expected)");
 }
 
 #[allow(clippy::modulo_one)]

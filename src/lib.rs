@@ -246,16 +246,22 @@ impl InfluenceZone {
 }
 
 impl Randomizable for System {
-    type Conf = Config;
-    fn sample<R: rand::Rng + ?Sized>(_: &mut R, config: &Self::Conf) -> Self {
-        let mut ppl: Vec<Person> = MonteCarlo::default().take(config.n_people).collect();
+    fn sample<R: Rng + ?Sized>(rng: &mut R) -> Self {
+        Self::sample_with_config(rng, &Config::default())
+    }
+}
+
+impl System {
+    /// Generate a system with explicit simulation settings using the supplied RNG.
+    pub fn sample_with_config<R: Rng + ?Sized>(rng: &mut R, config: &Config) -> Self {
+        let mut ppl: Vec<Person> = (0..config.n_people).map(|_| Person::sample(rng)).collect();
         for i in 0..ppl.len() {
             ppl[i].set_opinion(i % config.q);
         }
         Self {
             ppl,
-            izones: MonteCarlo::default()
-                .take(config.influece_zones_n)
+            izones: (0..config.influece_zones_n)
+                .map(|_| InfluenceZone::sample(rng))
                 .collect(),
         }
     }
@@ -404,6 +410,43 @@ impl System {
 
 pub fn probability_log(energy: f64, etot: f64, n_people: usize) -> f64 {
     (n_people - 1) as f64 * (etot - energy).ln()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rand::{SeedableRng, rngs::StdRng};
+
+    #[test]
+    fn configured_sampling_preserves_counts_and_opinions() {
+        let mut config = Config::default();
+        config.n_people = 7;
+        config.influece_zones_n = 3;
+        config.q = 3;
+        let mut rng = StdRng::seed_from_u64(42);
+        let system = System::sample_with_config(&mut rng, &config);
+
+        assert_eq!(system.ppl.len(), 7);
+        assert_eq!(system.izones.len(), 3);
+        for (i, person) in system.ppl.iter().enumerate() {
+            assert_eq!((person.io, person.po), (i % 3, i % 3));
+        }
+    }
+
+    #[test]
+    fn default_sampling_matches_explicit_config_with_same_seed() {
+        let mut default_rng = StdRng::seed_from_u64(42);
+        let mut configured_rng = StdRng::seed_from_u64(42);
+        let default_system = System::sample(&mut default_rng);
+        let configured_system = System::sample_with_config(&mut configured_rng, &Config::default());
+
+        assert_eq!(default_system.ppl.len(), Config::default().n_people);
+        assert_eq!(
+            serde_json::to_value(&default_system).unwrap(),
+            serde_json::to_value(&configured_system).unwrap()
+        );
+        assert!(MonteCarlo::<System, _>::default().next().is_some());
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]

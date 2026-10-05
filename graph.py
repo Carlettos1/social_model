@@ -13,6 +13,7 @@ from sshkeyboard import listen_keyboard
 import struct
 
 import matplotlib
+
 matplotlib.use("TkAgg")
 
 FRAMES = 20_000 - 1
@@ -44,27 +45,35 @@ B1_LOG = np.fromfile(B1_FILE, dtype="ushort", sep=", ")
 LOG = LOG_FILE.read()
 FRAMES = B0_LOG.shape[0]
 
-#B0_ITER = iter(B0_LOG)
-#B1_ITER = iter(B1_LOG)
-#LOG_ITER = iter(LOG.splitlines())
-#SYSTEM_ITER = SYSTEM_FILE
+# B0_ITER = iter(B0_LOG)
+# B1_ITER = iter(B1_LOG)
+# LOG_ITER = iter(LOG.splitlines())
+# SYSTEM_ITER = SYSTEM_FILE
 
-fig, ax = plt.subplot_mosaic("AAB\nAAC\nAAD", figsize=(10,6))
+fig, ax = plt.subplot_mosaic("AAB\nAAC\nAAD", figsize=(10, 6))
 SYSTEM_PLOT: plt.Axes = ax["A"]
 ENERGY_PLOT: plt.Axes = ax["B"]
 B_PLOT: plt.Axes = ax["C"]
 REJ_PLOT: plt.Axes = ax["D"]
 PATCHES: list = []
 
-ENERGY_ALLDATA = pd.DataFrame([ float(re.search(r"Energy: +(-?\d+(?:\.\d+)?)", log).group(1)) for log in LOG.splitlines() ])
+ENERGY_ALLDATA = pd.DataFrame(
+    [
+        float(re.search(r"Energy: +(-?\d+(?:\.\d+)?)", log).group(1))
+        for log in LOG.splitlines()
+    ]
+)
 B0_ALLDATA = pd.DataFrame(B0_LOG)
 B1_ALLDATA = pd.DataFrame(B1_LOG)
-REJ_ALLDATA = pd.DataFrame([ float(re.search(r"rej\/n: (\d\.\d+)", log).group(1)) for log in LOG.splitlines() ])
+REJ_ALLDATA = pd.DataFrame(
+    [float(re.search(r"rej\/n: (\d\.\d+)", log).group(1)) for log in LOG.splitlines()]
+)
 
 SMA = 100
 ENERGY_SMA = ENERGY_ALLDATA.rolling(SMA).mean()
 B0_SMA = B0_ALLDATA.rolling(SMA).mean()
 B1_SMA = B1_ALLDATA.rolling(SMA).mean()
+
 
 class Currents:
     def __init__(self) -> None:
@@ -88,8 +97,10 @@ class Currents:
 
     def next_line(self):
         self.sys = SYSTEM_FILE.read(SYSTEM_EXPECTED_BYTES)
-        assert len(self.sys) == SYSTEM_EXPECTED_BYTES, f"{len(self.sys)} out of {SYSTEM_EXPECTED_BYTES}" # expect to be exactly this ammount of bytes
-        assert next(SYSTEM_FILE) == b'\n' # each system is separated by a \n
+        assert len(self.sys) == SYSTEM_EXPECTED_BYTES, (
+            f"{len(self.sys)} out of {SYSTEM_EXPECTED_BYTES}"
+        )  # expect to be exactly this ammount of bytes
+        assert next(SYSTEM_FILE) == b"\n"  # each system is separated by a \n
         self.energy = ENERGY_ALLDATA[0][self.index]
         self.energy_sma = np.nan_to_num(ENERGY_SMA[0][self.index], nan=self.energy)
         self.b0 = B0_ALLDATA[0][self.index]
@@ -99,8 +110,10 @@ class Currents:
         self.rej = REJ_ALLDATA[0][self.index]
         self.index += 1
 
+
 CURRENTS = Currents()
 COLORS = ["r", "g", "b", "black"]
+
 
 def read_current_system():
     # len: u8
@@ -130,7 +143,9 @@ def read_current_system():
         Y[i] = ppl_y
     last_byte_read = c
     # next should be len_iz_vec == 1
-    len_iz_vec = struct.unpack('<B', CURRENTS.sys[last_byte_read:last_byte_read + 1])[0]
+    len_iz_vec = struct.unpack("<B", CURRENTS.sys[last_byte_read : last_byte_read + 1])[
+        0
+    ]
     last_byte_read += 1
     izones = CURRENTS.sys[last_byte_read:]
     sqr = []
@@ -158,6 +173,7 @@ def read_current_system():
         sqr.append([iz_blx, iz_bly, iz_trx, iz_try, iz_op, iz_str])
     return B, S, X, Y, sqr
 
+
 def update_system(frame):
     B, S, X, Y, sqr = read_current_system()
 
@@ -176,6 +192,7 @@ def update_system(frame):
         PATCHES[i].set_alpha(alpha)
     pass
 
+
 def separate(B, S, X, Y):
     liars = [s != b for (s, b) in zip(S, B)]
     SL, ST = [], []
@@ -192,6 +209,7 @@ def separate(B, S, X, Y):
             ST.append(SS[i])
     return POST, ST, POSL, SL
 
+
 def update_rej(frame):
     REJ_LN.set_xdata([frame])
     REJ_LN.set_ydata([CURRENTS.rej])
@@ -202,6 +220,7 @@ def update_rej(frame):
     REJ_PLOT.draw_artist(REJ_LN)
     REJ_PLOT.draw_artist(REJ_TEXT)
     pass
+
 
 def update_b(frame):
     B0_LN.set_xdata([frame])
@@ -222,6 +241,7 @@ def update_b(frame):
     B_PLOT.draw_artist(B1_TEXT)
     pass
 
+
 def update_energy(frame):
     ENERGY_LN.set_xdata([frame])
     ENERGY_LN.set_ydata([CURRENTS.energy_sma])
@@ -233,16 +253,24 @@ def update_energy(frame):
     ENERGY_PLOT.draw_artist(ENERGY_TEXT)
     pass
 
+
 def init_patches():
-    _,_,_,_,squares = read_current_system()
+    _, _, _, _, squares = read_current_system()
     for r in squares:
-        rect = patches.Rectangle((r[0], r[1]), r[2]-r[0], r[3]-r[1], alpha=0.5*r[5]+0.1, facecolor=COLORS[int(r[4])])
+        rect = patches.Rectangle(
+            (r[0], r[1]),
+            r[2] - r[0],
+            r[3] - r[1],
+            alpha=0.5 * r[5] + 0.1,
+            facecolor=COLORS[int(r[4])],
+        )
         p = SYSTEM_PLOT.add_patch(rect)
         PATCHES.append(p)
     # for c in circles:
     #     cir = patches.Circle((c[0], c[1]), c[2], alpha=0.5*c[4]+0.1, facecolor=COLORS[int(c[3])])
     #     p = SYSTEM_PLOT.add_patch(cir)
     #     PATCHES.append(p)
+
 
 def init():
     SYSTEM_PLOT.set_xlim(0, 1)
@@ -263,18 +291,19 @@ def init():
     REJ_PLOT.plot(REJ_ALLDATA, color="gray", alpha=0.5)
     pass
 
+
 SYSTEM_LSCATTER = SYSTEM_PLOT.scatter([0], [0], c=["r"], marker="x")
 SYSTEM_TSCATTER = SYSTEM_PLOT.scatter([0], [0], c=["r"], marker=".")
 
-ENERGY_LN, = ENERGY_PLOT.plot([0], [0], "o", animated=True)
+(ENERGY_LN,) = ENERGY_PLOT.plot([0], [0], "o", animated=True)
 ENERGY_TEXT = ENERGY_PLOT.text(0, 0, "")
 
-B0_LN, = B_PLOT.plot([0], [0], "bo", animated=True)
+(B0_LN,) = B_PLOT.plot([0], [0], "bo", animated=True)
 B0_TEXT = B_PLOT.text(0, 0, f"")
-B1_LN, = B_PLOT.plot([0], [0], "ro", animated=True)
+(B1_LN,) = B_PLOT.plot([0], [0], "ro", animated=True)
 B1_TEXT = B_PLOT.text(0, 0, "")
 
-REJ_LN, = REJ_PLOT.plot([0], [0], "o", animated=True)
+(REJ_LN,) = REJ_PLOT.plot([0], [0], "o", animated=True)
 REJ_TEXT = REJ_PLOT.text(0, 0, "")
 
 CURRENTS.next_line()
@@ -287,18 +316,22 @@ title = fig.suptitle("Frame: 0")
 bg = fig.canvas.copy_from_bbox(fig.bbox)
 fig.canvas.blit()
 
+
 def on_pressed(event):
     if event.key == "x":
         CURRENTS.press()
+
 
 def on_release(event):
     if event.key == "x":
         CURRENTS.release()
 
+
 def on_resize(event):
     global bg
     fig.canvas.draw()  # Redraw the figure so layout is correct
     bg = fig.canvas.copy_from_bbox(fig.bbox)
+
 
 fig.canvas.mpl_connect("resize_event", on_resize)
 fig.canvas.mpl_connect("key_press_event", on_pressed)
@@ -311,7 +344,7 @@ for frame in range(FRAMES):
     print(f"Frame {frame}")
 
     if CURRENTS.flag:
-        fig.canvas.restore_region(bg) # <- restora el bg, quita el anterior plot
+        fig.canvas.restore_region(bg)  # <- restora el bg, quita el anterior plot
         if frame % 100 == 0:
             # fig.canvas.draw_idle()
             # fig.canvas.flush_events()
@@ -326,7 +359,7 @@ for frame in range(FRAMES):
         SYSTEM_PLOT.draw_artist(SYSTEM_TSCATTER)
         fig.canvas.blit(fig.bbox)
         fig.draw_artist(title)
-    
+
     if plt.get_fignums().__len__() == 0:
         break
     CURRENTS.next_line()
